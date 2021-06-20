@@ -4,7 +4,7 @@
     text-align: center;
     background-image: url('/assets/pokemonBkg.jpg');
     background-size: contain;
-    padding-top: 30px;
+    padding-top:30px;
     font-family: sans-serif;
 }
 h1, h2 {
@@ -13,7 +13,7 @@ h1, h2 {
 }
 .title {
     display: block;
-    margin: 0 auto 26px 60px;
+    margin: 0 auto 10px 60px;
 }
 .contentText {
     margin-top: 0;
@@ -27,6 +27,7 @@ h1, h2 {
     width: 50%;
     vertical-align: middle;
     position: relative;
+    margin-bottom: 20px;
 }
 
 .subtitle {
@@ -35,9 +36,11 @@ h1, h2 {
     letter-spacing: 3px;
     text-align: justify;
     color: #614040;
+    margin-top: 0;
     &.goal {
         font-weight: bold;
-        text-transform: uppercase;;
+        text-transform: uppercase;
+        color: black;
     }
 }
 
