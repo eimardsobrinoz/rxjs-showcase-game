@@ -1,12 +1,24 @@
-<h1>RxJS Showcase Game</h1>
-
-
-<canvas #canvas class="canvas" height="500" width="1000"></canvas>
-<!-- <button (click)="animate()">Play</button>   -->
-
-<h2>Time:
-  <span> {{initGameState ? initGameState.time_left : countDown}}</span> seconds
-</h2>
-<h2>Points:
-  <span> {{initGameState ? initGameState.score : 0}}</span>
-</h2>
+<img class="title" src="imgTitle" src="./assets/gameTitlePng.png" alt="">
+<div class="contentText">
+  <p class="subtitle">
+    The purpose of this game is to make use of RxJS library, reactive programing, observables, promises,high order observables,
+    and a large amount of rxjs operators: Mergemap, map filter, takeWhile, mapTo, concatmap, startwith, merge, etc
+    <span class="disclaimer">*I forced the use of some operators and implementations to put them on practice</span>
+  </p>
+  <p class="subtitle goal">
+    Capture as many pokemons as you can
+  </p>
+  <button class="startBtn" #startButton>
+    Start Game
+  </button>
+</div>
+<div class="contentCanvas">
+  <canvas #canvas class="canvas" height="500" width="500"></canvas><div class="contentResult">
+    <h2 class="txt">Time:
+      <span> {{initGameState ? initGameState.time_left : countDown}}</span> seconds
+    </h2>
+    <h2 class="txt">Diglets captured:
+      <span class="txt__result"> {{score}}</span>
+    </h2>
+  </div>
+</div>

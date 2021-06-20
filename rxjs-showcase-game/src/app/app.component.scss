@@ -2,11 +2,83 @@
     display: block;
     width: 100%;
     text-align: center;
+    background-image: url('/assets/pokemonBkg.jpg');
+    background-size: contain;
+    padding-top: 30px;
+    font-family: sans-serif;
+}
+h1, h2 {
+    margin:0;
+    padding:0;
+}
+.title {
+    display: block;
+    margin: 0 auto 26px 60px;
+}
+.contentText {
+    margin-top: 0;
+    display: inline-block;
+    width: 42%;
+    vertical-align: top;
+    padding: 0 28px;
+}
+.contentCanvas {
+    display: inline-block;
+    width: 50%;
+    vertical-align: middle;
+    position: relative;
+}
+
+.subtitle {
+    line-height: 1.7;
+    font-size: 20px;
+    letter-spacing: 3px;
+    text-align: justify;
+    color: #614040;
+    &.goal {
+        font-weight: bold;
+        text-transform: uppercase;;
+    }
+}
+
+.disclaimer {
+    color:#f92929;
+    font-size: 14px;
+    display: block;
+}
+.startBtn {
+    border: 3px solid #d4a727;
+    border-radius: 10px;
+    padding: 15px;
+    background: #f7e075;
+    font-size: 20px;
+    font-weight: bold;
+    margin: 0 auto 40px auto;
+    display: block;
+    cursor: pointer;
+    float: right;
 }
 .canvas {
     height: 500px;
-    width: 1000px;
+    width: 500px;
     margin: 0 auto;
     border: 3px solid black;
-    cursor:url('/assets/disinfection.png'), auto;
+    cursor:url('/assets/pokeball.png'), auto;
+}
+
+.contentResult {
+    .txt {
+        margin: 0;
+        font-weight: bold;
+        font-size: 50px;
+        &:first-child {
+            margin-bottom: 18px;
+        }
+    }
+    .txt__result {
+        color: #dcdcc6;
+    }
+    position: absolute;
+    top: -192px;
+    left: calc(50% - 224px);
 }

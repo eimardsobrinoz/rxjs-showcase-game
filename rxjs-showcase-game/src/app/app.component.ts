@@ -1,7 +1,7 @@
 import { CanvasCoordinates, GameAction, GAME_ACTOR, GameState } from './../models/interfaces';
-import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, ViewChild, ViewEncapsulation } from '@angular/core';
 import { Observable, Subscription, timer, merge, fromEvent, Subject, interval } from 'rxjs';
-import { first, map, mapTo, scan, startWith } from 'rxjs/operators';
+import { map, mapTo, mergeMap, scan, startWith, takeWhile, tap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
@@ -10,17 +10,17 @@ import { first, map, mapTo, scan, startWith } from 'rxjs/operators';
 })
 export class AppComponent implements AfterViewInit {
 
-  @ViewChild('canvas', { static: true })
-  canvas: ElementRef<HTMLCanvasElement>;  
-  game$: Observable<any>;
+  @ViewChild('startButton', { static: true }) startButton: ElementRef;
+  @ViewChild('canvas', { static: true }) canvas: ElementRef<HTMLCanvasElement>;  
   gameTimer$: Observable<GameAction>;
   computerMove$: Observable<any>;
   userMove$: Observable<any>;
   subcriptions: Subscription[] = [];
-  countDown: number = 60;
+  countDownLimit: number = 60;
+  countDown: number = this.countDownLimit;
+  score: number = 0;
   CELL_SIZE: number = 100;
   initGameState: GameState;
-  
   private ctx: CanvasRenderingContext2D;
 
   ngOnInit(): void {
@@ -30,30 +30,47 @@ export class AppComponent implements AfterViewInit {
   ngAfterViewInit(): void {
     this.ctx = this.canvas.nativeElement.getContext('2d');
     this.drawCanvas();
-    this.initGame();
+    this.subcriptions.push(
+      fromEvent(this.startButton.nativeElement, 'click').pipe(
+        mergeMap( () => this.initGame()),
+      ).subscribe( (gameState: GameState) => {
+        console.log('Emilio gameState: ', gameState);
+      })
+    );
   }
+
  
-  initGame() {
+  initGame(): Observable<any>  {
     this.initGameBoard();
     this.setGameTimer();
     this.simulateComputerMove();
     this.setUserMove();
 
-    this.game$ = merge(this.gameTimer$, this.computerMove$, this.userMove$);
-    this.subcriptions.push(this.game$.pipe(
+    const game$: Observable<any> = merge(this.gameTimer$, this.computerMove$, this.userMove$);
+    game$.pipe(
       // startWith( () => null),
-      scan(this.updateGameState, this.initGameState)
-    ).subscribe( gameState => {
-      console.log('Emilio gameState: ', gameState);
-    }));
+      scan(this.updateGameState, this.initGameState),
+      tap((gameState: GameState) => {
+        this.countDown = gameState.time_left;
+        this.score = gameState.score;
+      }),
+      takeWhile( gameState => !this.isGameFinished(gameState), true)
+    );
+    return game$;
+  }
+
+  isGameFinished(gameState: GameState): boolean{
+    const validCells: CanvasCoordinates[] = this.getValidCells(gameState.board);
+    if (validCells.length === 0 || gameState.finished) return true;
+    return false;
   }
 
   initGameBoard() {
     this.initGameState = {
       score: 0,
       finished: false,
-      board: Array(3).fill(null).map( () => Array(3).fill(0)),
-      time_left: this.countDown
+      board: Array(5).fill(null).map( () => Array(5).fill(0)),
+      time_left: this.countDownLimit
     }; 
   }
 
@@ -63,26 +80,27 @@ export class AppComponent implements AfterViewInit {
       gameState.time_left = action.time_left;
       if (action.time_left <= 0) gameState.finished = true;
     } else if (action.actor === GAME_ACTOR.COMPUTER) {
-      const computerAction: GameAction = this.computerMove(gameState.board)
-      this.drawVirus(computerAction.coordinates);
+      const computerAction: GameAction = this.computerMove(gameState)
+      this.drawPokemon(computerAction.coordinates);
       gameState.board[computerAction.coordinates.cell_y][computerAction.coordinates.cell_x] = 1;
     } else if (action.actor === GAME_ACTOR.USER) {
-      this.removeVirus(action.coordinates);
+      this.capturePokemon(action.coordinates);
       gameState.score++;
     }
     return gameState;
   };
 
   setGameTimer() {
-    this.gameTimer$ = timer(1000, 2000).pipe(
-      startWith(() => this.countDown + 1),
+    this.gameTimer$ = timer(0, 1000).pipe(
+      startWith(() => this.countDownLimit + 1),
       map( () => {
-        return {actor: GAME_ACTOR.TIMER, time_left: this.countDown}
+        this.countDownLimit--;
+        return {actor: GAME_ACTOR.TIMER, time_left: this.countDownLimit}
       })
     );
   }
   simulateComputerMove() {
-    this.computerMove$ =  interval(1000).pipe(
+    this.computerMove$ =  interval(2000).pipe(
       mapTo({actor: GAME_ACTOR.COMPUTER})
     );
   }
@@ -105,21 +123,21 @@ export class AppComponent implements AfterViewInit {
   }
 
   getEmptyCell(gameState: GameState): CanvasCoordinates {
-    const getValidCells = (board: any[]): CanvasCoordinates[] => {
-      const cells: CanvasCoordinates[] = [];
-      const boardLength: number = board.length;
-      const board_X_axix_Length: number = board[0].length;
-      for(let x=0; x < boardLength; x++) {
-        for(let y=0; y < board_X_axix_Length; y++) {
-          if (gameState.board[y][x] == 0) cells.push({cell_x: x, cell_y: y});
-        }
-      }
-      return cells;
-    };
-    const validCells: CanvasCoordinates[] = getValidCells(gameState.board);
+    const validCells: CanvasCoordinates[] = this.getValidCells(gameState.board);
     const getRamdomCellIndex = (): number => Math.floor(Math.random() * validCells.length);
     return validCells[getRamdomCellIndex()];
   }
+  getValidCells = (board: any[]): CanvasCoordinates[] => {
+    const cells: CanvasCoordinates[] = [];
+    const boardLength: number = board.length;
+    const board_X_axix_Length: number = board[0].length;
+    for(let x=0; x < boardLength; x++) {
+      for(let y=0; y < board_X_axix_Length; y++) {
+        if (board[y][x] == 0) cells.push({cell_x: x, cell_y: y});
+      }
+    }
+    return cells;
+  };
 
   drawCanvas() {
     this.drawVerticalLines(100, 500,  1);
@@ -158,16 +176,16 @@ export class AppComponent implements AfterViewInit {
     this.ctx.stroke();
   }
 
-  drawVirus(coordinates: CanvasCoordinates) {
+  drawPokemon(coordinates: CanvasCoordinates) {
     let img = new Image();
-    img.src = './assets/covid.jpg';
+    img.src = './assets/diglet.png';
     img.onload = () => {
       this.ctx.drawImage(img, coordinates.cell_x * 100, coordinates.cell_y*100, 100, 100)
     }
   }
-  removeVirus(coordinates: CanvasCoordinates) {
+  capturePokemon(coordinates: CanvasCoordinates) {
     let img = new Image();
-    img.src = './assets/covidProtected.png';
+    img.src = './assets/pokeballCaptured.png';
     img.onload = () => {
       this.ctx.drawImage(img, coordinates.cell_x * 100, coordinates.cell_y*100, 100, 100)
     }
