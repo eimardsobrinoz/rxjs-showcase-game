@@ -1,0 +1,12 @@
+:host {
+    display: block;
+    width: 100%;
+    text-align: center;
+}
+.canvas {
+    height: 500px;
+    width: 1000px;
+    margin: 0 auto;
+    border: 3px solid black;
+    cursor:url('/assets/disinfection.png'), auto;
+}
