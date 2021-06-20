@@ -1,7 +1,7 @@
 import { CanvasCoordinates, GameAction, GAME_ACTOR, GameState } from './../models/interfaces';
 import { AfterViewInit, Component, ElementRef, ViewChild, ViewEncapsulation } from '@angular/core';
-import { Observable, Subscription, timer, merge, fromEvent, Subject, interval } from 'rxjs';
-import { map, mapTo, mergeMap, scan, startWith, takeWhile, tap } from 'rxjs/operators';
+import { Observable, Subscription, timer, merge, fromEvent, Subject, interval, BehaviorSubject } from 'rxjs';
+import { filter, map, mapTo, mergeMap, scan, startWith, takeWhile, tap, withLatestFrom } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
@@ -12,15 +12,15 @@ export class AppComponent implements AfterViewInit {
 
   @ViewChild('startButton', { static: true }) startButton: ElementRef;
   @ViewChild('canvas', { static: true }) canvas: ElementRef<HTMLCanvasElement>;  
+  game$: Observable<GameState>;
+  gameState$: BehaviorSubject<GameState>;
   gameTimer$: Observable<GameAction>;
   computerMove$: Observable<any>;
   userMove$: Observable<any>;
   subcriptions: Subscription[] = [];
-  countDownLimit: number = 60;
-  countDown: number = this.countDownLimit;
+  countDown: number = 60;
   score: number = 0;
   CELL_SIZE: number = 100;
-  initGameState: GameState;
   private ctx: CanvasRenderingContext2D;
 
   ngOnInit(): void {
@@ -28,28 +28,34 @@ export class AppComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    this.ctx = this.canvas.nativeElement.getContext('2d');
-    this.drawCanvas();
+    this.ctx = this.canvas.nativeElement.getContext('2d'); 
+    this.setGame();
     this.subcriptions.push(
-      fromEvent(this.startButton.nativeElement, 'click').pipe(
-        mergeMap( () => this.initGame()),
-      ).subscribe( (gameState: GameState) => {
-        console.log('Emilio gameState: ', gameState);
+      this.game$.subscribe( (gameState: GameState) => {
+        if (gameState.finished) alert(`Game finished with ${gameState.score} pokemon captured`);
       })
     );
   }
 
+  setGame() {
+    this.drawCanvas();
+    this.game$ = fromEvent(this.startButton.nativeElement, 'click').pipe(
+      mergeMap( () => this.initGame()),
+    );
+  }
+
  
-  initGame(): Observable<any>  {
+  initGame(): Observable<GameState>  {
     this.initGameBoard();
     this.setGameTimer();
     this.simulateComputerMove();
     this.setUserMove();
 
-    const game$: Observable<any> = merge(this.gameTimer$, this.computerMove$, this.userMove$);
-    game$.pipe(
-      // startWith( () => null),
-      scan(this.updateGameState, this.initGameState),
+    const game$: Observable<GameState> = merge(this.gameTimer$, this.computerMove$, this.userMove$).pipe(
+      startWith( () => null),
+      scan(this.updateGameState, this.gameState$.value),
+      // I use gameState$ behavior subject as a proxy in order to avoid circular dependency
+      tap( (gameStateUpdated: GameState) => this.gameState$.next(gameStateUpdated)),
       tap((gameState: GameState) => {
         this.countDown = gameState.time_left;
         this.score = gameState.score;
@@ -66,12 +72,13 @@ export class AppComponent implements AfterViewInit {
   }
 
   initGameBoard() {
-    this.initGameState = {
+    const initGameState: GameState= {
       score: 0,
       finished: false,
       board: Array(5).fill(null).map( () => Array(5).fill(0)),
-      time_left: this.countDownLimit
+      time_left: this.countDown
     }; 
+    this.gameState$ = new BehaviorSubject<GameState>(initGameState);
   }
 
   updateGameState = (gameState: GameState, action: GameAction): GameState => {
@@ -80,9 +87,8 @@ export class AppComponent implements AfterViewInit {
       gameState.time_left = action.time_left;
       if (action.time_left <= 0) gameState.finished = true;
     } else if (action.actor === GAME_ACTOR.COMPUTER) {
-      const computerAction: GameAction = this.computerMove(gameState)
-      this.drawPokemon(computerAction.coordinates);
-      gameState.board[computerAction.coordinates.cell_y][computerAction.coordinates.cell_x] = 1;
+      this.drawPokemon(action.coordinates);
+      gameState.board[action.coordinates.cell_y][action.coordinates.cell_x] = 1;
     } else if (action.actor === GAME_ACTOR.USER) {
       this.capturePokemon(action.coordinates);
       gameState.score++;
@@ -92,25 +98,27 @@ export class AppComponent implements AfterViewInit {
 
   setGameTimer() {
     this.gameTimer$ = timer(0, 1000).pipe(
-      startWith(() => this.countDownLimit + 1),
-      map( () => {
-        this.countDownLimit--;
-        return {actor: GAME_ACTOR.TIMER, time_left: this.countDownLimit}
+      map( (countDown: number) => {
+        this.countDown--;
+        return {actor: GAME_ACTOR.TIMER, time_left: this.countDown}
       })
     );
   }
   simulateComputerMove() {
     this.computerMove$ =  interval(2000).pipe(
-      mapTo({actor: GAME_ACTOR.COMPUTER})
+      withLatestFrom(this.gameState$),
+      filter( ([index, gameState]) => gameState !== null || undefined),
+      map( ([index, gameState]) => gameState),
+      map((gameState: GameState) => {
+        const randomEmptyCell = this.getEmptyCell(gameState);
+        const computerAction: GameAction = {actor: GAME_ACTOR.COMPUTER, coordinates: randomEmptyCell};
+        return computerAction;
+      })
     );
   }
-  computerMove(board: any): GameAction {
-    const randomEmptyCell = this.getEmptyCell(board);
-    const computerAction: GameAction = {actor: GAME_ACTOR.COMPUTER, coordinates: randomEmptyCell};
-    return computerAction;
-  }
+
   setUserMove() {
-    this.userMove$ = fromEvent(this.canvas.nativeElement, 'click').pipe(
+    const click$ = fromEvent(this.canvas.nativeElement, 'click').pipe(
       map( (event: Event) => {
         const clickCoordinates: CanvasCoordinates = { 
           cell_x: Math.floor(event['offsetX'] / this.CELL_SIZE),
@@ -119,6 +127,9 @@ export class AppComponent implements AfterViewInit {
         const gameAction: GameAction= {actor: GAME_ACTOR.USER, coordinates: clickCoordinates };
         return gameAction;
       })
+    );
+    this.userMove$ =  click$.pipe(
+
     );
   }
 
@@ -185,9 +196,9 @@ export class AppComponent implements AfterViewInit {
   }
   capturePokemon(coordinates: CanvasCoordinates) {
     let img = new Image();
-    img.src = './assets/pokeballCaptured.png';
+    img.src = './assets/pokeball.png';
     img.onload = () => {
-      this.ctx.drawImage(img, coordinates.cell_x * 100, coordinates.cell_y*100, 100, 100)
+      this.ctx.drawImage(img, coordinates.cell_x * 100 + 5, coordinates.cell_y*100 + 5, 90, 90)
     }
   }
 

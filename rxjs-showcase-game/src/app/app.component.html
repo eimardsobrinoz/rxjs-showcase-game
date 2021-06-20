@@ -1,8 +1,8 @@
 <img class="title" src="imgTitle" src="./assets/gameTitlePng.png" alt="">
 <div class="contentText">
   <p class="subtitle">
-    The purpose of this game is to make use of RxJS library, reactive programing, observables, promises,high order observables,
-    and a large amount of rxjs operators: Mergemap, map filter, takeWhile, mapTo, concatmap, startwith, merge, etc
+    The purpose of this game is to make use of RxJS library, reactive programing, promises,high order observables, subjects 
+    and a large amount of rxjs operators: Mergemap, map filter, takeWhile, mapTo, concatmap, withLatestFrom, startwith, merge, etc
     <span class="disclaimer">*I forced the use of some operators and implementations to put them on practice</span>
   </p>
   <p class="subtitle goal">
@@ -15,7 +15,7 @@
 <div class="contentCanvas">
   <canvas #canvas class="canvas" height="500" width="500"></canvas><div class="contentResult">
     <h2 class="txt">Time:
-      <span> {{initGameState ? initGameState.time_left : countDown}}</span> seconds
+      <span> {{countDown}}</span> seconds
     </h2>
     <h2 class="txt">Diglets captured:
       <span class="txt__result"> {{score}}</span>
