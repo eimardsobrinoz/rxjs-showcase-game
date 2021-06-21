@@ -89,10 +89,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.drawPokemon(action.coordinates);
       gameState.board[action.coordinates.cell_y][action.coordinates.cell_x] = 1;
     } else if (action.actor === GAME_ACTOR.USER) {
-      if (gameState.board[action.coordinates.cell_y][action.coordinates.cell_x]) {
+      if (gameState.board[action.coordinates.cell_y][action.coordinates.cell_x] === 1) {
+        gameState.board[action.coordinates.cell_y][action.coordinates.cell_x] = 2;
         this.capturePokemon(action.coordinates);
         gameState.score++;
-      } else {
+      } else if (gameState.board[action.coordinates.cell_y][action.coordinates.cell_x] !== 2) {
         this.playCapturedFailed();
         gameState.score--;
       }
