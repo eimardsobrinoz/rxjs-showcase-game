@@ -1,14 +1,14 @@
 import { CanvasCoordinates, GameAction, GAME_ACTOR, GameState } from './../models/interfaces';
-import { AfterViewInit, Component, ElementRef, ViewChild, ViewEncapsulation } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
 import { Observable, Subscription, timer, merge, fromEvent, Subject, interval, BehaviorSubject } from 'rxjs';
-import { filter, map, mapTo, mergeMap, scan, startWith, takeWhile, tap, withLatestFrom } from 'rxjs/operators';
+import { filter, map, mapTo, mergeMap, scan, startWith, takeWhile, tap, timestamp, withLatestFrom } from 'rxjs/operators';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent implements AfterViewInit {
+export class AppComponent implements OnInit, AfterViewInit {
 
   @ViewChild('startButton', { static: true }) startButton: ElementRef;
   @ViewChild('canvas', { static: true }) canvas: ElementRef<HTMLCanvasElement>;  
@@ -18,13 +18,15 @@ export class AppComponent implements AfterViewInit {
   computerMove$: Observable<any>;
   userMove$: Observable<any>;
   subcriptions: Subscription[] = [];
-  countDown: number = 60;
+  countDown: number = 20;
   score: number = 0;
   CELL_SIZE: number = 100;
+  audio: any;
+  caputedFailed: any;
   private ctx: CanvasRenderingContext2D;
 
   ngOnInit(): void {
-    
+    this.playPaletteTownAudio();
   }
 
   ngAfterViewInit(): void {
@@ -32,7 +34,9 @@ export class AppComponent implements AfterViewInit {
     this.setGame();
     this.subcriptions.push(
       this.game$.subscribe( (gameState: GameState) => {
-        if (gameState.finished) alert(`Game finished with ${gameState.score} pokemon captured`);
+        if (gameState.finished)  {
+          this.playVictoyAudio();
+        }
       })
     );
   }
@@ -40,6 +44,7 @@ export class AppComponent implements AfterViewInit {
   setGame() {
     this.drawCanvas();
     this.game$ = fromEvent(this.startButton.nativeElement, 'click').pipe(
+      tap( () => this.playBattleAudio()),
       mergeMap( () => this.initGame()),
     );
   }
@@ -60,15 +65,9 @@ export class AppComponent implements AfterViewInit {
         this.countDown = gameState.time_left;
         this.score = gameState.score;
       }),
-      takeWhile( gameState => !this.isGameFinished(gameState), true)
+      takeWhile( ({finished}) => finished == false, true)
     );
     return game$;
-  }
-
-  isGameFinished(gameState: GameState): boolean{
-    const validCells: CanvasCoordinates[] = this.getValidCells(gameState.board);
-    if (validCells.length === 0 || gameState.finished) return true;
-    return false;
   }
 
   initGameBoard() {
@@ -86,26 +85,31 @@ export class AppComponent implements AfterViewInit {
     if (action.actor === GAME_ACTOR.TIMER) {
       gameState.time_left = action.time_left;
       if (action.time_left <= 0) gameState.finished = true;
-    } else if (action.actor === GAME_ACTOR.COMPUTER) {
+    } else if (action.actor === GAME_ACTOR.COMPUTER && action.coordinates) {
       this.drawPokemon(action.coordinates);
       gameState.board[action.coordinates.cell_y][action.coordinates.cell_x] = 1;
     } else if (action.actor === GAME_ACTOR.USER) {
-      this.capturePokemon(action.coordinates);
-      gameState.score++;
+      if (gameState.board[action.coordinates.cell_y][action.coordinates.cell_x]) {
+        this.capturePokemon(action.coordinates);
+        gameState.score++;
+      } else {
+        this.playCapturedFailed();
+        gameState.score--;
+      }
     }
     return gameState;
   };
 
   setGameTimer() {
     this.gameTimer$ = timer(0, 1000).pipe(
-      map( (countDown: number) => {
+      map( () => {
         this.countDown--;
         return {actor: GAME_ACTOR.TIMER, time_left: this.countDown}
       })
     );
   }
   simulateComputerMove() {
-    this.computerMove$ =  interval(2000).pipe(
+    this.computerMove$ =  interval(700).pipe(
       withLatestFrom(this.gameState$),
       filter( ([index, gameState]) => gameState !== null || undefined),
       map( ([index, gameState]) => gameState),
@@ -136,7 +140,7 @@ export class AppComponent implements AfterViewInit {
   getEmptyCell(gameState: GameState): CanvasCoordinates {
     const validCells: CanvasCoordinates[] = this.getValidCells(gameState.board);
     const getRamdomCellIndex = (): number => Math.floor(Math.random() * validCells.length);
-    return validCells[getRamdomCellIndex()];
+    return validCells.length ? validCells[getRamdomCellIndex()] : null;
   }
   getValidCells = (board: any[]): CanvasCoordinates[] => {
     const cells: CanvasCoordinates[] = [];
@@ -201,7 +205,33 @@ export class AppComponent implements AfterViewInit {
       this.ctx.drawImage(img, coordinates.cell_x * 100 + 5, coordinates.cell_y*100 + 5, 90, 90)
     }
   }
-
+  playPaletteTownAudio(){
+    this.audio = new Audio();
+    this.audio.src = "assets/paletteTownAudio.mp3";
+    this.audio.load();
+    this.audio.play();
+  }
+  playBattleAudio(){
+    this.audio.src = "assets/battlePokemon.mp3";
+    this.audio.load();
+    this.audio.play();
+  }
+  playCapturedFailed(){
+    this.caputedFailed = new Audio();
+    this.caputedFailed.src = "assets/beep.mp3";
+    this.caputedFailed.load();
+    this.caputedFailed.play();
+  }
+  playVictoyAudio(){
+    this.audio.pause();
+    const audioTimer: Subscription = timer(500).subscribe( () => {
+      this.audio.src = "assets/victoryPokemon.mp3";
+      this.audio.load();
+      this.audio.play();
+      audioTimer.unsubscribe();
+    });
+   
+  }
 
   ngOnDestroy(): void {
     this.subcriptions.forEach( (subscription: Subscription) => subscription.unsubscribe());
